@@ -3,6 +3,7 @@ const cors = require("cors");
 const app = express();
 const port = process.env.port || 3000;
 const { MongoClient, ServerApiVersion } = require("mongodb");
+const { ObjectId } = require("mongodb");
 
 app.use(cors());
 app.use(express.json());
@@ -24,6 +25,31 @@ async function run() {
     // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
     // Send a ping to confirm a successful connection
+
+    const jobCollection = client.db("job-portal").collection("jobs");
+    const applicationsCollection = client
+      .db("job-portal")
+      .collection("applications");
+
+    app.get("/jobs", async (req, res) => {
+      const cursor = jobCollection.find();
+      const result = await cursor.toArray();
+      res.send(result);
+    });
+
+    app.get("/jobs/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await jobCollection.findOne(query);
+      res.send(result);
+    });
+
+    app.post("/application", async (req, res) => {
+      const application = req.body;
+      const result = await applicationsCollection.insertOne(application);
+      res.send(result);
+    });
+
     await client.db("admin").command({ ping: 1 });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
