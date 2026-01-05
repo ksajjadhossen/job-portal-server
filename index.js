@@ -44,12 +44,45 @@ async function run() {
       res.send(result);
     });
 
+    app.post("/jobs", async (req, res) => {
+      const newJob = req.body;
+      const result = await jobCollection.insertOne(newJob);
+      console.log(result);
+      res.send(result);
+    });
+
+    app.get("/getJobsByEmailAddress", (req, res) => {
+      const email = req.query.email;
+      const query = { hr_email: email };
+    });
+
     app.get("/applications", async (req, res) => {
       const email = req.query.email;
       const query = {
         applicant: email,
       };
+
       const result = await applicationsCollection.find(query).toArray();
+      //bad way to aggregate data...
+
+      for (const application of result) {
+        const jobId = application.jobId; // নিশ্চিত করুন এখানে application.job_id বা jobId সঠিক আছে
+        const jobQuery = { _id: new ObjectId(jobId) };
+        const job = await jobCollection.findOne(jobQuery);
+
+        // যদি জব খুঁজে পাওয়া যায় তবেই ডাটা সেট করবে
+        if (job) {
+          application.company = job.company;
+          application.title = job.title;
+          application.company_logo = job.company_logo;
+          application.location = job.location;
+        } else {
+          // জব না পাওয়া গেলে ডিফল্ট কিছু দিয়ে দিতে পারেন
+          application.company = "Unknown Company";
+          application.title = "Position No Longer Available";
+        }
+      }
+
       res.send(result);
     });
 
