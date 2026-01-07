@@ -5,6 +5,7 @@ var jwt = require("jsonwebtoken");
 const port = process.env.port || 3000;
 const { MongoClient, ServerApiVersion } = require("mongodb");
 const { ObjectId } = require("mongodb");
+const cookieParser = require("cookie-parser");
 
 app.use(
   cors({
@@ -13,9 +14,25 @@ app.use(
   })
 );
 app.use(express.json());
+app.use(cookieParser());
 require("dotenv").config();
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.p5n6wf0.mongodb.net/?appName=Cluster0`;
+
+const verifyToken = (req, res, next) => {
+  const token = req?.cookies?.token?.token;
+
+  if (!token) {
+    return res.status(401).send({ Message: "unauthorized access.." });
+  }
+
+  jwt.verify(token, process.env.JWT_ACCESS_SECRET, (error, decoded) => {
+    if (error) {
+      return res.status(401).send({ Message: "Un Authorized access" });
+    }
+    next();
+  });
+};
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
@@ -44,10 +61,14 @@ async function run() {
         expiresIn: "1h",
       });
 
-      res.cookie("token", token, {
-        httpOnly: true,
-        secure: false,
-      });
+      res.cookie(
+        "token",
+        { token },
+        {
+          httpOnly: true,
+          secure: false,
+        }
+      );
       res.send({ success: true });
     });
 
@@ -80,8 +101,12 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/applications", async (req, res) => {
+    app.get("/applications", verifyToken, async (req, res) => {
       const email = req.query.email;
+
+      if (email !== req.decoded.email) {
+        return res.status(403).send({ message: "forbidden access." });
+      }
       const query = { hr_email: email };
       const result = await jobCollection.find(query).toArray();
       res.send(result);
